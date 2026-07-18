@@ -18,7 +18,7 @@ function renderMatches(filterDate = null) {
                 <span>📅 ${match.date}</span>
                 <span>⏰ ${match.time}</span>
             </div>
-            <div style="margin-top:8px; font-size:0.8rem;">Депозит: ${match.deposit} BYN</div>
+            <div style="margin-top:8px; font-size:0.8rem;">Стол: ${match.tableDeposit} BYN · Стул: ${match.stoolDeposit} BYN</div>
             <button class="btn-delete-match" data-match-id="${match.id}">🗑️ Удалить</button>
         `;
         card.addEventListener('click', () => selectMatch(match.id));
@@ -49,7 +49,7 @@ function updateMatchHeader(matchId) {
         document.getElementById('matchInfoHeader').innerHTML = `
             <div class="match-header-main">
                 <h3>🏟️ ${match.name}</h3>
-                <div>${match.date} в ${match.time} · Депозит ${match.deposit} BYN</div>
+                <div>${match.date} в ${match.time} · Стол: ${match.tableDeposit} BYN · Стул: ${match.stoolDeposit} BYN</div>
             </div>
             <div class="occupancy-summary" id="occupancySummary"></div>
         `;
@@ -101,7 +101,8 @@ async function showCreateMatchModal() {
         <div class="form-group"><label>Дата</label><input type="date" id="newMatchDate"></div>
         <div class="form-group"><label>Название</label><input type="text" id="newMatchName" placeholder="Команда 1 — Команда 2"></div>
         <div class="form-group"><label>Время</label><input type="time" id="newMatchTime"></div>
-        <div class="form-group"><label>Депозит (BYN)</label><input type="number" id="newMatchDeposit" min="0" value="50"></div>
+        <div class="form-group"><label>Депозит за стол (BYN)</label><input type="number" id="newTableDeposit" min="0" value="30"></div>
+        <div class="form-group"><label>Депозит за стул (BYN)</label><input type="number" id="newStoolDeposit" min="0" value="20"></div>
         <button class="btn-primary" id="saveMatchBtn">Сохранить</button>
     `;
     document.getElementById('matchModal').classList.add('active');
@@ -112,12 +113,13 @@ async function saveMatch() {
     const date = document.getElementById('newMatchDate').value;
     const name = document.getElementById('newMatchName').value.trim();
     const time = document.getElementById('newMatchTime').value;
-    const deposit = parseFloat(document.getElementById('newMatchDeposit').value);
-    if (!date || !name || !time || isNaN(deposit)) {
+    const tableDeposit = parseFloat(document.getElementById('newTableDeposit').value);
+    const stoolDeposit = parseFloat(document.getElementById('newStoolDeposit').value);
+    if (!date || !name || !time || isNaN(tableDeposit) || isNaN(stoolDeposit)) {
         alert('Заполните все поля');
         return;
     }
-    const newMatch = { id: 'm' + Date.now(), date, time, name, deposit };
+    const newMatch = { id: 'm' + Date.now(), date, time, name, tableDeposit, stoolDeposit };
     await db.addMatch(newMatch);
     matches.push(newMatch);
     document.getElementById('matchModal').classList.remove('active');

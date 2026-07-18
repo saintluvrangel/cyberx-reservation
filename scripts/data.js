@@ -4,8 +4,8 @@ const itemsData = {
     'table-3': { id: 'table-3', type: 'table', label: 'Стол 3', capacity: 3 },
     'table-4': { id: 'table-4', type: 'table', label: 'Стол 4', capacity: 3 },
     'table-5': { id: 'table-5', type: 'table', label: 'Стол 5', capacity: 2 },
-    'table-6': { id: 'table-6', type: 'table', label: 'Стол 6', capacity: 3 },
-    'table-7': { id: 'table-7', type: 'table', label: 'Стол 7', capacity: 2 },
+    'table-6': { id: 'table-6', type: 'table', label: 'Стол 6', capacity: 2 },
+    'table-7': { id: 'table-7', type: 'table', label: 'Стол 7', capacity: 3 },
     'table-8': { id: 'table-8', type: 'table', label: 'Стол 8', capacity: 2 },
     'bar-1': { id: 'bar-1', type: 'bar-stool', label: 'Б1' },
     'bar-2': { id: 'bar-2', type: 'bar-stool', label: 'Б2' },
@@ -20,6 +20,7 @@ const itemsData = {
     'right-2': { id: 'right-2', type: 'stool', label: 'С2-2' },
     'right-3': { id: 'right-3', type: 'stool', label: 'С2-3' },
 };
+
 
 function getBookingForItem(matchId, itemId) {
     const bookings = bookingsData[matchId] || [];

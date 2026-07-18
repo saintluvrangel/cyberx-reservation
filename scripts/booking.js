@@ -195,11 +195,11 @@ function showBookingForm(preselectedItemId, matchId) {
     const content = document.getElementById('bookingModalContent');
     content.innerHTML = `
         <h3>${isTable ? 'Забронировать стол(ы)' : 'Забронировать место'}</h3>
-        <p class="booking-match-info">${match.name} · ${match.date} ${match.time} · Депозит ${match.deposit} BYN/чел</p>
+        <p class="booking-match-info">${match.name} · ${match.date} ${match.time} · Стол: ${match.tableDeposit ?? 30} BYN · Стул: ${match.stoolDeposit ?? 20} BYN</p>
         
         <div class="form-group">
-            <label>Количество человек</label>
-            <input type="number" id="peopleCount" min="1" max="20" value="${isTable ? preselectedItem.capacity : 1}" placeholder="Сколько гостей?">
+            <label>Количество человек (за столами)</label>
+            <input type="number" id="peopleCount" min="0" max="20" value="${isTable ? preselectedItem.capacity : 0}" placeholder="Сколько гостей за столами?">
         </div>
 
         <div class="form-group">
@@ -209,8 +209,7 @@ function showBookingForm(preselectedItemId, matchId) {
         </div>
 
         <div id="capacityInfo" class="capacity-info">
-            Вместимость: <span id="totalCapacity">${isTable ? preselectedItem.capacity : 1}</span> чел.
-            · Депозит: <strong id="totalDeposit">${ (isTable ? preselectedItem.capacity : 1) * match.deposit } BYN</strong>
+            <span id="depositDetails"></span>
         </div>
 
         <div class="form-group">
@@ -239,18 +238,58 @@ function showBookingForm(preselectedItemId, matchId) {
     const addBtn = document.getElementById('addItemBtn');
     const saveBtn = document.getElementById('saveBookingBtn');
     const selectedContainer = document.getElementById('selectedItemsContainer');
-    const totalCapacitySpan = document.getElementById('totalCapacity');
-    const totalDepositStrong = document.getElementById('totalDeposit');
+    const depositDetails = document.getElementById('depositDetails');
 
-    function updateCapacityInfo() {
-        const people = parseInt(peopleInput.value) || 0;
-        let totalCap = 0;
+    // Функция пересчёта депозита и автонастройки поля people
+    function updateDepositAndUI() {
+        const tables = [];
+        const stools = [];
         selectedItems.forEach(id => {
             const item = itemsData[id];
-            totalCap += item.type === 'table' ? item.capacity : 1;
+            if (item.type === 'table') tables.push(item);
+            else stools.push(item);
         });
-        totalCapacitySpan.textContent = totalCap;
-        totalDepositStrong.textContent = `${people * match.deposit} BYN`;
+
+        const totalTableCapacity = tables.reduce((sum, t) => sum + t.capacity, 0);
+        const stoolCount = stools.length;
+        const hasTables = tables.length > 0;
+
+        // Автоустановка количества человек
+        if (hasTables) {
+            peopleInput.disabled = false;
+            peopleInput.max = Math.max(1, Math.min(20, totalTableCapacity));
+            let currentPeople = parseInt(peopleInput.value) || 0;
+            if (currentPeople > totalTableCapacity) {
+                peopleInput.value = totalTableCapacity;
+            } else if (currentPeople <= 0 && totalTableCapacity > 0) {
+                peopleInput.value = Math.min(1, totalTableCapacity);
+            }
+        } else {
+            // Только стулья – people = количество стульев
+            peopleInput.disabled = true;
+            peopleInput.value = stoolCount;
+        }
+
+        const tablePeople = hasTables ? (parseInt(peopleInput.value) || 0) : 0;
+        const totalPeople = tablePeople + stoolCount;
+
+        const tableDeposit = match.tableDeposit ?? 30;
+        const stoolDeposit = match.stoolDeposit ?? 20;
+        const totalDep = tablePeople * tableDeposit + stoolCount * stoolDeposit;
+
+        let detailText = '';
+        if (hasTables) {
+            const tableNames = tables.map(t => t.label).join(', ');
+            detailText += `Столы: ${tablePeople} чел. (${tableNames})`;
+        }
+        if (stoolCount > 0) {
+            const stoolNames = stools.map(s => s.label).join(', ');
+            detailText += (detailText ? ' · ' : '') + `Стулья: ${stoolNames} (${stoolCount} шт. × ${stoolDeposit} BYN)`;
+        }
+        detailText += `<br><strong>Итого: ${totalDep} BYN (гостей: ${totalPeople})</strong>`;
+
+        depositDetails.innerHTML = detailText;
+        return { totalPeople, totalDep, hasTables, stoolCount, totalTableCapacity };
     }
 
     function renderSelectedItems() {
@@ -269,7 +308,7 @@ function showBookingForm(preselectedItemId, matchId) {
                 if (selectedItems.size > 1) {
                     selectedItems.delete(id);
                     renderSelectedItems();
-                    updateCapacityInfo();
+                    updateDepositAndUI();
                 } else {
                     showToast('Должно быть выбрано хотя бы одно место');
                 }
@@ -279,9 +318,9 @@ function showBookingForm(preselectedItemId, matchId) {
     }
 
     renderSelectedItems();
-    updateCapacityInfo();
+    updateDepositAndUI();
 
-    peopleInput.addEventListener('input', updateCapacityInfo);
+    peopleInput.addEventListener('input', updateDepositAndUI);
 
     addBtn.addEventListener('click', () => {
         const freeItems = Object.keys(itemsData).filter(id => 
@@ -306,13 +345,13 @@ function showBookingForm(preselectedItemId, matchId) {
                 selectedItems.add(id);
                 chooseDiv.remove();
                 renderSelectedItems();
-                updateCapacityInfo();
+                updateDepositAndUI();
             });
             list.appendChild(opt);
         });
         chooseDiv.appendChild(list);
         const cancelBtn = document.createElement('button');
-        cancelBtn.className = 'btn-cancel';
+        cancelBtn.className = 'btn-secondary';  // единый стиль
         cancelBtn.textContent = 'Отмена';
         cancelBtn.addEventListener('click', () => chooseDiv.remove());
         chooseDiv.appendChild(cancelBtn);
@@ -320,30 +359,36 @@ function showBookingForm(preselectedItemId, matchId) {
     });
 
     saveBtn.addEventListener('click', async () => {
-        const people = parseInt(peopleInput.value) || 0;
-        if (people <= 0) { alert('Укажите количество человек'); return; }
+        const { totalPeople, totalDep, hasTables, stoolCount, totalTableCapacity } = updateDepositAndUI();
+        const tablePeople = hasTables ? (parseInt(peopleInput.value) || 0) : 0;
+
+        if (hasTables && tablePeople > totalTableCapacity) {
+            alert(`Столы вмещают не более ${totalTableCapacity} человек.`);
+            return;
+        }
+        if (!hasTables && stoolCount === 0) {
+            alert('Выберите хотя бы одно место.');
+            return;
+        }
+        if (hasTables && tablePeople <= 0) {
+            alert('Количество гостей за столами должно быть больше 0.');
+            return;
+        }
+
         const name = document.getElementById('bookingName').value.trim();
         const phone = document.getElementById('bookingPhone').value.trim();
         if (!name || !phone) { alert('Заполните ФИО и телефон'); return; }
         const depositPaid = document.getElementById('depositPaidCheckbox').checked;
-        const selectedArray = Array.from(selectedItems);
-        const totalCap = selectedArray.reduce((sum, id) => {
-            const it = itemsData[id];
-            return sum + (it.type === 'table' ? it.capacity : 1);
-        }, 0);
-        if (people > totalCap) {
-            alert(`Выбранные места вмещают только ${totalCap} чел.`);
-            return;
-        }
+
         const newBooking = {
             id: 'b' + Date.now(),
             matchId: matchId,
-            items: selectedArray,
-            people: people,
+            items: Array.from(selectedItems),
+            people: totalPeople,
             name,
             phone,
-            depositRequired: people * match.deposit,
-            depositPaid: depositPaid
+            depositRequired: totalDep,
+            depositPaid
         };
         try {
             await db.addBooking(newBooking);
@@ -360,6 +405,45 @@ function showBookingForm(preselectedItemId, matchId) {
     });
 }
 
+// --- Удаление брони с кастомным подтверждением (кнопки в едином стиле) ---
+async function deleteBooking(booking, matchId) {
+    try {
+        await db.deleteBooking(booking.id);
+        const matchBookings = bookingsData[matchId];
+        if (matchBookings) {
+            const idx = matchBookings.findIndex(b => b.id === booking.id);
+            if (idx !== -1) matchBookings.splice(idx, 1);
+        }
+        renderFloorPlan(matchId);
+        updateOccupancySummary(matchId);
+        showToast('Бронь удалена');
+    } catch (err) {
+        console.error(err);
+        showToast('Ошибка удаления');
+    }
+}
+
+function showDeleteConfirmation(booking, matchId) {
+    const content = document.getElementById('infoModalContent');
+    content.innerHTML = `
+        <h3>Удалить бронь?</h3>
+        <p style="margin-bottom: 24px;">Вы действительно хотите удалить бронь #${booking.id} (${booking.name})?</p>
+        <div style="display: flex; gap: 12px; justify-content: flex-end;">
+            <button class="btn-secondary" id="cancelDeleteBtn">Отмена</button>
+            <button class="btn-primary" id="confirmDeleteBtn" style="background: #e53935; border-color: #e53935;">Удалить</button>
+        </div>
+    `;
+    document.getElementById('infoModal').classList.add('active');
+    document.getElementById('cancelDeleteBtn').addEventListener('click', () => {
+        document.getElementById('infoModal').classList.remove('active');
+    });
+    document.getElementById('confirmDeleteBtn').addEventListener('click', async () => {
+        document.getElementById('infoModal').classList.remove('active');
+        await deleteBooking(booking, matchId);
+    });
+}
+
+// --- Просмотр деталей брони с кнопкой удаления ---
 function showBookingDetailsModal(booking, matchId) {
     const content = document.getElementById('infoModalContent');
     const itemsStr = booking.items.map(id => itemsData[id].label).join(', ');
@@ -407,7 +491,8 @@ function showBookingDetailsModal(booking, matchId) {
             </div>
         </div>
         
-        <div class="save-btn-container">
+        <div class="save-btn-container" style="display: flex; gap: 12px; justify-content: space-between; align-items: center;">
+            <button class="btn-delete-match" id="deleteBookingBtn">🗑️ Удалить бронь</button>
             <button class="btn-primary" id="saveDepositStatusBtn">Сохранить изменения</button>
         </div>
     `;
@@ -439,6 +524,10 @@ function showBookingDetailsModal(booking, matchId) {
             console.error(err);
             showToast('Ошибка обновления');
         }
+    });
+
+    document.getElementById('deleteBookingBtn').addEventListener('click', () => {
+        showDeleteConfirmation(booking, matchId);
     });
 
     document.getElementById('infoModal').classList.add('active');
