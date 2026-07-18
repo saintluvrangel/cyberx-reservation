@@ -1,11 +1,15 @@
+function formatDate(dateStr) {
+    if (!dateStr) return '';
+    const [year, month, day] = dateStr.split('-');
+    return `${day}.${month}.${year}`;
+}
+
 function renderMatches(filterDate = null) {
     const container = document.getElementById('matchesList');
     const noMatches = document.getElementById('noMatches');
     let filtered = matches;
-    if (filterDate) {
-        filtered = matches.filter(m => m.date === filterDate);
-    }
-    // Сортировка: сначала по дате, затем по времени
+    if (filterDate) filtered = matches.filter(m => m.date === filterDate);
+    
     filtered.sort((a, b) => {
         const dateA = new Date(a.date + 'T' + a.time);
         const dateB = new Date(b.date + 'T' + b.time);
@@ -24,7 +28,7 @@ function renderMatches(filterDate = null) {
         card.innerHTML = `
             <div class="match-teams">${match.name}</div>
             <div class="match-datetime">
-                <span>📅 ${match.date}</span>
+                <span>📅 ${formatDate(match.date)}</span>
                 <span>⏰ ${match.time}</span>
             </div>
             <div class="match-deposit-info">
@@ -60,7 +64,7 @@ function updateMatchHeader(matchId) {
         document.getElementById('matchInfoHeader').innerHTML = `
             <div class="match-header-main">
                 <h3>🏟️ ${match.name}</h3>
-                <div>${match.date} в ${match.time} · Стол: ${match.tableDeposit ?? 30} BYN · Стул: ${match.stoolDeposit ?? 20} BYN</div>
+                <div>${formatDate(match.date)} в ${match.time} · Стол: ${match.tableDeposit ?? 30} BYN · Стул: ${match.stoolDeposit ?? 20} BYN</div>
             </div>
             <div class="occupancy-summary" id="occupancySummary"></div>
         `;

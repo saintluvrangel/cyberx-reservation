@@ -951,6 +951,10 @@ input[type="checkbox"].ios-toggle:checked::before {
   }
 }
 
+.phone-input {
+    font-family: monospace;
+}
+
 @media (max-width: 480px) {
   .app-title {
     font-size: 1.2rem;
