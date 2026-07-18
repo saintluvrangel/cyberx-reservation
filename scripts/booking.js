@@ -187,19 +187,51 @@ function showInfoModal(itemId, matchId) {
     });
 }
 
-function showBookingForm(preselectedItemId, matchId) {
+// Функция для форматирования телефона
+function formatPhone(value) {
+    if (!value) return '';
+    const digits = value.replace(/\D/g, '');
+    if (digits.startsWith('375')) {
+        const code = digits.slice(3, 5);
+        const part1 = digits.slice(5, 8);
+        const part2 = digits.slice(8, 10);
+        const part3 = digits.slice(10, 12);
+        let res = '+375';
+        if (code) res += ` (${code}`;
+        if (part1) res += `) ${part1}`;
+        if (part2) res += `-${part2}`;
+        if (part3) res += `-${part3}`;
+        return res;
+    } else {
+        return `+375 (${digits.slice(0, 2)}${digits.slice(2, 5) ? ') ' + digits.slice(2, 5) : ''}${digits.slice(5, 8) ? '-' + digits.slice(5, 8) : ''}${digits.slice(8, 10) ? '-' + digits.slice(8, 10) : ''}`;
+    }
+}
+
+// Привязываем маску к полю
+function bindPhoneMask(input) {
+    input.addEventListener('input', (e) => {
+        const cursor = input.selectionStart;
+        const prev = input.value;
+        const next = formatPhone(prev);
+        input.value = next;
+        const diff = next.length - prev.length;
+        input.setSelectionRange(cursor + diff, cursor + diff);
+    });
+}
+
+function showBookingForm(preselectedItemId, matchId, editBooking = null) {
     const preselectedItem = itemsData[preselectedItemId];
     const match = matches.find(m => m.id === matchId);
     const isTable = preselectedItem.type === 'table';
 
     const content = document.getElementById('bookingModalContent');
     content.innerHTML = `
-        <h3>${isTable ? 'Забронировать стол(ы)' : 'Забронировать место'}</h3>
+        <h3>${editBooking ? 'Редактировать бронь' : (isTable ? 'Забронировать стол(ы)' : 'Забронировать место')}</h3>
         <p class="booking-match-info">${match.name} · ${match.date} ${match.time} · Стол: ${match.tableDeposit ?? 30} BYN · Стул: ${match.stoolDeposit ?? 20} BYN</p>
         
         <div class="form-group">
             <label>Количество человек (за столами)</label>
-            <input type="number" id="peopleCount" min="0" max="20" value="${isTable ? preselectedItem.capacity : 0}" placeholder="Сколько гостей за столами?">
+            <input type="number" id="peopleCount" min="0" max="20" value="${editBooking ? editBooking.people : (isTable ? preselectedItem.capacity : 0)}" placeholder="Сколько гостей за столами?">
         </div>
 
         <div class="form-group">
@@ -214,33 +246,35 @@ function showBookingForm(preselectedItemId, matchId) {
 
         <div class="form-group">
             <label>ФИО</label>
-            <input type="text" id="bookingName" placeholder="Иванов Иван Иванович">
+            <input type="text" id="bookingName" placeholder="Иванов Иван Иванович" value="${editBooking ? editBooking.name : ''}">
         </div>
         <div class="form-group">
             <label>Телефон</label>
-            <input type="tel" id="bookingPhone" placeholder="+375 (29) 123-45-67">
+            <input type="tel" id="bookingPhone" placeholder="+375 (29) 123-45-67" value="${editBooking ? editBooking.phone : ''}">
         </div>
         
         <div class="toggle-wrapper" style="margin: 24px 0 16px;">
-            <input type="checkbox" id="depositPaidCheckbox" class="ios-toggle">
+            <input type="checkbox" id="depositPaidCheckbox" class="ios-toggle" ${editBooking ? (editBooking.depositPaid ? 'checked' : '') : ''}>
             <label for="depositPaidCheckbox" class="toggle-label">Депозит внесён</label>
         </div>
 
         <div class="save-btn-container">
-            <button class="btn-primary" id="saveBookingBtn">Забронировать</button>
+            <button class="btn-primary" id="saveBookingBtn">${editBooking ? 'Сохранить изменения' : 'Забронировать'}</button>
         </div>
     `;
 
     document.getElementById('bookingModal').classList.add('active');
 
-    const selectedItems = new Set([preselectedItemId]);
+    const phoneInput = document.getElementById('bookingPhone');
+    bindPhoneMask(phoneInput);
+
+    const selectedItems = new Set(editBooking ? editBooking.items : [preselectedItemId]);
     const peopleInput = document.getElementById('peopleCount');
     const addBtn = document.getElementById('addItemBtn');
     const saveBtn = document.getElementById('saveBookingBtn');
     const selectedContainer = document.getElementById('selectedItemsContainer');
     const depositDetails = document.getElementById('depositDetails');
 
-    // Функция пересчёта депозита и автонастройки поля people
     function updateDepositAndUI() {
         const tables = [];
         const stools = [];
@@ -254,7 +288,6 @@ function showBookingForm(preselectedItemId, matchId) {
         const stoolCount = stools.length;
         const hasTables = tables.length > 0;
 
-        // Автоустановка количества человек
         if (hasTables) {
             peopleInput.disabled = false;
             peopleInput.max = Math.max(1, Math.min(20, totalTableCapacity));
@@ -265,7 +298,6 @@ function showBookingForm(preselectedItemId, matchId) {
                 peopleInput.value = Math.min(1, totalTableCapacity);
             }
         } else {
-            // Только стулья – people = количество стульев
             peopleInput.disabled = true;
             peopleInput.value = stoolCount;
         }
@@ -323,9 +355,10 @@ function showBookingForm(preselectedItemId, matchId) {
     peopleInput.addEventListener('input', updateDepositAndUI);
 
     addBtn.addEventListener('click', () => {
-        const freeItems = Object.keys(itemsData).filter(id => 
-            getItemStatus(matchId, id) === 'free' && !selectedItems.has(id)
-        );
+        const freeItems = Object.keys(itemsData).filter(id => {
+            const status = getItemStatus(matchId, id);
+            return status === 'free' || selectedItems.has(id);
+        }).filter(id => !selectedItems.has(id));
         if (freeItems.length === 0) {
             showToast('Нет доступных мест');
             return;
@@ -351,7 +384,7 @@ function showBookingForm(preselectedItemId, matchId) {
         });
         chooseDiv.appendChild(list);
         const cancelBtn = document.createElement('button');
-        cancelBtn.className = 'btn-secondary';  // единый стиль
+        cancelBtn.className = 'btn-cancel';
         cancelBtn.textContent = 'Отмена';
         cancelBtn.addEventListener('click', () => chooseDiv.remove());
         chooseDiv.appendChild(cancelBtn);
@@ -380,32 +413,59 @@ function showBookingForm(preselectedItemId, matchId) {
         if (!name || !phone) { alert('Заполните ФИО и телефон'); return; }
         const depositPaid = document.getElementById('depositPaidCheckbox').checked;
 
-        const newBooking = {
-            id: 'b' + Date.now(),
-            matchId: matchId,
-            items: Array.from(selectedItems),
-            people: totalPeople,
-            name,
-            phone,
-            depositRequired: totalDep,
-            depositPaid
-        };
-        try {
-            await db.addBooking(newBooking);
-            if (!bookingsData[matchId]) bookingsData[matchId] = [];
-            bookingsData[matchId].push(newBooking);
-            document.getElementById('bookingModal').classList.remove('active');
-            renderFloorPlan(matchId);
-            updateOccupancySummary(matchId);
-            showToast('Бронирование создано');
-        } catch (err) {
-            console.error(err);
-            showToast('Ошибка сохранения');
+        if (editBooking) {
+            // Обновление существующей брони
+            editBooking.name = name;
+            editBooking.phone = phone;
+            editBooking.items = Array.from(selectedItems);
+            editBooking.people = totalPeople;
+            editBooking.depositRequired = totalDep;
+            editBooking.depositPaid = depositPaid;
+
+            try {
+                await db.updateBooking(editBooking);
+                const matchBookings = bookingsData[matchId];
+                if (matchBookings) {
+                    const idx = matchBookings.findIndex(b => b.id === editBooking.id);
+                    if (idx !== -1) matchBookings[idx] = editBooking;
+                }
+                document.getElementById('bookingModal').classList.remove('active');
+                renderFloorPlan(matchId);
+                updateOccupancySummary(matchId);
+                showToast('Бронь обновлена');
+            } catch (err) {
+                console.error(err);
+                showToast('Ошибка сохранения');
+            }
+        } else {
+            // Новая бронь
+            const newBooking = {
+                id: 'b' + Date.now(),
+                matchId: matchId,
+                items: Array.from(selectedItems),
+                people: totalPeople,
+                name,
+                phone,
+                depositRequired: totalDep,
+                depositPaid
+            };
+            try {
+                await db.addBooking(newBooking);
+                if (!bookingsData[matchId]) bookingsData[matchId] = [];
+                bookingsData[matchId].push(newBooking);
+                document.getElementById('bookingModal').classList.remove('active');
+                renderFloorPlan(matchId);
+                updateOccupancySummary(matchId);
+                showToast('Бронирование создано');
+            } catch (err) {
+                console.error(err);
+                showToast('Ошибка сохранения');
+            }
         }
     });
 }
 
-// --- Удаление брони с кастомным подтверждением (кнопки в едином стиле) ---
+// --- Удаление брони ---
 async function deleteBooking(booking, matchId) {
     try {
         await db.deleteBooking(booking.id);
@@ -429,8 +489,8 @@ function showDeleteConfirmation(booking, matchId) {
         <h3>Удалить бронь?</h3>
         <p style="margin-bottom: 24px;">Вы действительно хотите удалить бронь #${booking.id} (${booking.name})?</p>
         <div style="display: flex; gap: 12px; justify-content: flex-end;">
-            <button class="btn-secondary" id="cancelDeleteBtn">Отмена</button>
-            <button class="btn-primary" id="confirmDeleteBtn" style="background: #e53935; border-color: #e53935;">Удалить</button>
+            <button class="btn-cancel" id="cancelDeleteBtn">Отмена</button>
+            <button class="btn-delete-booking" id="confirmDeleteBtn">Удалить</button>
         </div>
     `;
     document.getElementById('infoModal').classList.add('active');
@@ -443,11 +503,14 @@ function showDeleteConfirmation(booking, matchId) {
     });
 }
 
-// --- Просмотр деталей брони с кнопкой удаления ---
+// --- Просмотр деталей брони ---
 function showBookingDetailsModal(booking, matchId) {
-    const content = document.getElementById('infoModalContent');
-    const itemsStr = booking.items.map(id => itemsData[id].label).join(', ');
     const match = matches.find(m => m.id === matchId);
+    const itemsStr = booking.items.map(id => itemsData[id].label).join(', ');
+    const content = document.getElementById('infoModalContent');
+    const depositStatusHTML = booking.depositPaid
+        ? '<span class="badge badge-paid">✅ Депозит внесён</span>'
+        : '<span class="badge badge-unpaid">⚠️ Депозит не внесён</span>';
     
     content.innerHTML = `
         <h3>📋 Бронь #${booking.id}</h3>
@@ -481,54 +544,25 @@ function showBookingDetailsModal(booking, matchId) {
                 <span class="detail-label">Депозит</span>
                 <span class="detail-value">${booking.depositRequired} BYN</span>
             </div>
-            
-            <div class="deposit-status-row">
-                <div class="toggle-wrapper">
-                    <input type="checkbox" id="editDepositPaid" class="ios-toggle" ${booking.depositPaid ? 'checked' : ''}>
-                    <label for="editDepositPaid" class="toggle-label">Внесён</label>
-                </div>
-                <span id="depositStatusBadge"></span>
+            <div class="detail-row">
+                <span class="detail-label">Статус</span>
+                <span class="detail-value">${depositStatusHTML}</span>
             </div>
         </div>
-        
-        <div class="save-btn-container" style="display: flex; gap: 12px; justify-content: space-between; align-items: center;">
-            <button class="btn-delete-match" id="deleteBookingBtn">🗑️ Удалить бронь</button>
-            <button class="btn-primary" id="saveDepositStatusBtn">Сохранить изменения</button>
+        <div style="display: flex; gap: 12px; justify-content: space-between; align-items: center; margin-top: 20px;">
+            <button class="btn-delete-booking" id="deleteBookingBtn">🗑️ Удалить</button>
+            <button class="btn-primary" id="editBookingBtn">✏️ Редактировать</button>
         </div>
     `;
 
-    const badge = document.getElementById('depositStatusBadge');
-    function updateBadge() {
-        const paid = document.getElementById('editDepositPaid').checked;
-        badge.innerHTML = paid
-            ? '<span class="badge badge-paid">✅ Депозит внесён</span>'
-            : '<span class="badge badge-unpaid">⚠️ Депозит не внесён</span>';
-    }
-    document.getElementById('editDepositPaid').addEventListener('change', updateBadge);
-    updateBadge();
-
-    document.getElementById('saveDepositStatusBtn').addEventListener('click', async () => {
-        booking.depositPaid = document.getElementById('editDepositPaid').checked;
-        try {
-            await db.updateBooking(booking);
-            const matchBookings = bookingsData[booking.matchId];
-            if (matchBookings) {
-                const idx = matchBookings.findIndex(b => b.id === booking.id);
-                if (idx !== -1) matchBookings[idx] = booking;
-            }
-            renderFloorPlan(matchId);
-            updateOccupancySummary(matchId);
-            showToast('Статус депозита обновлён');
-            showBookingDetailsModal(booking, matchId);
-        } catch (err) {
-            console.error(err);
-            showToast('Ошибка обновления');
-        }
-    });
+    document.getElementById('infoModal').classList.add('active');
 
     document.getElementById('deleteBookingBtn').addEventListener('click', () => {
         showDeleteConfirmation(booking, matchId);
     });
 
-    document.getElementById('infoModal').classList.add('active');
+    document.getElementById('editBookingBtn').addEventListener('click', () => {
+        document.getElementById('infoModal').classList.remove('active');
+        showBookingForm(booking.items[0], matchId, booking);
+    });
 }
