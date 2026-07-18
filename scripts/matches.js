@@ -2,7 +2,16 @@ function renderMatches(filterDate = null) {
     const container = document.getElementById('matchesList');
     const noMatches = document.getElementById('noMatches');
     let filtered = matches;
-    if (filterDate) filtered = matches.filter(m => m.date === filterDate);
+    if (filterDate) {
+        filtered = matches.filter(m => m.date === filterDate);
+    }
+    // Сортировка: сначала по дате, затем по времени
+    filtered.sort((a, b) => {
+        const dateA = new Date(a.date + 'T' + a.time);
+        const dateB = new Date(b.date + 'T' + b.time);
+        return dateA - dateB;
+    });
+
     container.innerHTML = '';
     if (filtered.length === 0) {
         noMatches.style.display = 'block';
@@ -18,7 +27,9 @@ function renderMatches(filterDate = null) {
                 <span>📅 ${match.date}</span>
                 <span>⏰ ${match.time}</span>
             </div>
-            <div style="margin-top:8px; font-size:0.8rem;">Стол: ${match.tableDeposit} BYN · Стул: ${match.stoolDeposit} BYN</div>
+            <div class="match-deposit-info">
+                Стол: ${match.tableDeposit ?? 30} BYN &nbsp;·&nbsp; Стул: ${match.stoolDeposit ?? 20} BYN
+            </div>
             <button class="btn-delete-match" data-match-id="${match.id}">🗑️ Удалить</button>
         `;
         card.addEventListener('click', () => selectMatch(match.id));
@@ -49,7 +60,7 @@ function updateMatchHeader(matchId) {
         document.getElementById('matchInfoHeader').innerHTML = `
             <div class="match-header-main">
                 <h3>🏟️ ${match.name}</h3>
-                <div>${match.date} в ${match.time} · Стол: ${match.tableDeposit} BYN · Стул: ${match.stoolDeposit} BYN</div>
+                <div>${match.date} в ${match.time} · Стол: ${match.tableDeposit ?? 30} BYN · Стул: ${match.stoolDeposit ?? 20} BYN</div>
             </div>
             <div class="occupancy-summary" id="occupancySummary"></div>
         `;
