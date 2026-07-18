@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Бронирование столов — Матчи</title>
+    <link rel="stylesheet" href="styles/styles.css">
+</head>
+<body>
+    <div id="app" class="main-container">
+        <!-- Шапка с календарём и вкладками -->
+        <div class="app-header">
+            <div class="header-top">
+                <h1 class="app-title">🍽️ Бронирование столов</h1>
+                <div class="data-actions">
+                    <button id="exportBtn" class="btn-outline" title="Сохранить все данные в файл">📥 Экспорт</button>
+                    <button id="importBtn" class="btn-outline" title="Загрузить данные из файла">📤 Импорт</button>
+                    <input type="file" id="importFile" accept=".json" style="display:none;">
+                </div>
+                <div class="date-picker-wrapper">
+                    <label for="datePicker" class="date-label">📅 Дата:</label>
+                    <input type="date" id="datePicker" class="date-input">
+                    <button id="resetDateFilter" class="btn-reset" title="Показать все матчи">Все матчи</button>
+                </div>
+            </div>
+            <div class="tab-navigation">
+                <button class="tab-button active" data-view="matches">Матчи</button>
+                <button class="tab-button" data-view="booking" disabled>Бронирование зала</button>
+            </div>
+            <div id="backButtonWrapper" style="display: none;">
+                <button id="backToMatches" class="back-button">← Назад к списку матчей</button>
+            </div>
+        </div>
+
+        <!-- Представление "Матчи" -->
+        <div id="matchesView" class="view-container">
+            <div class="matches-actions">
+                <button id="createMatchBtn" class="btn-primary">➕ Создать матч</button>
+            </div>
+            <div id="matchesList" class="matches-list"></div>
+            <div id="noMatches" class="no-matches" style="display: none;">Нет матчей</div>
+        </div>
+
+        <!-- Представление "План зала" -->
+        <div id="bookingView" class="view-container" style="display: none;">
+            <div id="matchInfoHeader" class="match-info-header"></div>
+            <div id="floorPlan" class="floor-plan">
+                <!-- Генерируется через JS -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно информации о предмете -->
+    <div id="infoModal" class="modal-overlay">
+        <div class="modal">
+            <button class="modal-close" data-close="infoModal">✕</button>
+            <div id="infoModalContent"></div>
+        </div>
+    </div>
+
+    <!-- Модальное окно формы бронирования -->
+    <div id="bookingModal" class="modal-overlay">
+        <div class="modal">
+            <button class="modal-close" data-close="bookingModal">✕</button>
+            <div id="bookingModalContent"></div>
+        </div>
+    </div>
+
+    <!-- Модальное окно создания матча -->
+    <div id="matchModal" class="modal-overlay">
+        <div class="modal">
+            <button class="modal-close" data-close="matchModal">✕</button>
+            <div id="matchModalContent"></div>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div id="toast" class="toast"></div>
+
+    <script src="scripts/data.js"></script>
+    <script src="scripts/database.js"></script>
+    <script src="scripts/matches.js"></script>
+    <script src="scripts/booking.js"></script>
+    <script src="scripts/modal.js"></script>
+    <script src="scripts/app.js"></script>
+</body>
+</html>
