@@ -1,3 +1,5 @@
+// js/booking.js
+
 function formatDate(dateStr) {
     if (!dateStr) return '';
     const [year, month, day] = dateStr.split('-');
@@ -210,6 +212,7 @@ function showInfoModal(itemId, matchId) {
     });
 }
 
+// Новая логика: без ограничений по вместимости столов
 function showBookingForm(preselectedItemId, matchId) {
     const preselectedItem = itemsData[preselectedItemId];
     const match = matches.find(m => m.id === matchId);
@@ -222,7 +225,7 @@ function showBookingForm(preselectedItemId, matchId) {
         
         <div class="form-group">
             <label>Количество человек (за столами)</label>
-            <input type="number" id="peopleCount" min="0" max="20" value="${isTable ? preselectedItem.capacity : 0}" placeholder="Сколько гостей за столами?">
+            <input type="number" id="peopleCount" min="0" max="50" value="${isTable ? 1 : 0}" placeholder="Сколько гостей за столами?">
         </div>
 
         <div class="form-group">
@@ -273,19 +276,20 @@ function showBookingForm(preselectedItemId, matchId) {
             else stools.push(item);
         });
 
-        const totalTableCapacity = tables.reduce((sum, t) => sum + t.capacity, 0);
         const stoolCount = stools.length;
         const hasTables = tables.length > 0;
 
+        // Если есть столы, поле ввода свободно (1..50), если нет – только стулья, блокируем
         if (hasTables) {
             peopleInput.disabled = false;
-            peopleInput.max = Math.max(1, Math.min(20, totalTableCapacity));
-            let currentPeople = parseInt(peopleInput.value) || 0;
-            if (currentPeople > totalTableCapacity) {
-                peopleInput.value = totalTableCapacity;
-            } else if (currentPeople <= 0 && totalTableCapacity > 0) {
-                peopleInput.value = Math.min(1, totalTableCapacity);
+            let current = parseInt(peopleInput.value) || 0;
+            if (current < 1) {
+                peopleInput.value = 1;
+            } else if (current > 50) {
+                peopleInput.value = 50;
             }
+            peopleInput.min = 1;
+            peopleInput.max = 50;
         } else {
             peopleInput.disabled = true;
             peopleInput.value = stoolCount;
@@ -310,7 +314,7 @@ function showBookingForm(preselectedItemId, matchId) {
         detailText += `<br><strong>Итого: ${totalDep} BYN (гостей: ${totalPeople})</strong>`;
 
         depositDetails.innerHTML = detailText;
-        return { totalPeople, totalDep, hasTables, stoolCount, totalTableCapacity };
+        return { totalPeople, totalDep, hasTables, stoolCount };
     }
 
     function renderSelectedItems() {
@@ -380,13 +384,9 @@ function showBookingForm(preselectedItemId, matchId) {
     });
 
     saveBtn.addEventListener('click', async () => {
-        const { totalPeople, totalDep, hasTables, stoolCount, totalTableCapacity } = updateDepositAndUI();
+        const { totalPeople, totalDep, hasTables, stoolCount } = updateDepositAndUI();
         const tablePeople = hasTables ? (parseInt(peopleInput.value) || 0) : 0;
 
-        if (hasTables && tablePeople > totalTableCapacity) {
-            alert(`Столы вмещают не более ${totalTableCapacity} человек.`);
-            return;
-        }
         if (!hasTables && stoolCount === 0) {
             alert('Выберите хотя бы одно место.');
             return;
@@ -535,7 +535,7 @@ function showBookingDetailsModal(booking, matchId) {
     });
 }
 
-// Редактирование брони
+// Редактирование брони (аналогично без лимитов)
 function showEditBookingForm(booking, matchId) {
     const match = matches.find(m => m.id === matchId);
     if (!match) return;
@@ -553,7 +553,7 @@ function showEditBookingForm(booking, matchId) {
         </div>
         <div class="form-group">
             <label>Количество человек (за столами)</label>
-            <input type="number" id="editPeopleCount" min="0" max="20" value="${booking.people}">
+            <input type="number" id="editPeopleCount" min="1" max="50" value="${booking.people}">
         </div>
         <div class="form-group">
             <label>Выбранные места</label>
@@ -589,19 +589,19 @@ function showEditBookingForm(booking, matchId) {
             else stools.push(item);
         });
 
-        const totalTableCapacity = tables.reduce((sum, t) => sum + t.capacity, 0);
         const stoolCount = stools.length;
         const hasTables = tables.length > 0;
 
         if (hasTables) {
             peopleInput.disabled = false;
-            peopleInput.max = Math.max(1, Math.min(20, totalTableCapacity));
-            let currentPeople = parseInt(peopleInput.value) || 0;
-            if (currentPeople > totalTableCapacity) {
-                peopleInput.value = totalTableCapacity;
-            } else if (currentPeople <= 0 && totalTableCapacity > 0) {
-                peopleInput.value = Math.min(1, totalTableCapacity);
+            let current = parseInt(peopleInput.value) || 0;
+            if (current < 1) {
+                peopleInput.value = 1;
+            } else if (current > 50) {
+                peopleInput.value = 50;
             }
+            peopleInput.min = 1;
+            peopleInput.max = 50;
         } else {
             peopleInput.disabled = true;
             peopleInput.value = stoolCount;
