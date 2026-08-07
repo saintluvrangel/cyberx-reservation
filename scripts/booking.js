@@ -6,7 +6,6 @@ function formatDate(dateStr) {
     return `${day}.${month}.${year}`;
 }
 
-// Маска для телефона: только цифры, автоматически добавляет +
 function setupPhoneInput(inputElement) {
     inputElement.addEventListener('input', function(e) {
         let value = this.value.replace(/\D/g, '');
@@ -212,7 +211,6 @@ function showInfoModal(itemId, matchId) {
     });
 }
 
-// Новая логика: без ограничений по вместимости столов
 function showBookingForm(preselectedItemId, matchId) {
     const preselectedItem = itemsData[preselectedItemId];
     const match = matches.find(m => m.id === matchId);
@@ -279,7 +277,6 @@ function showBookingForm(preselectedItemId, matchId) {
         const stoolCount = stools.length;
         const hasTables = tables.length > 0;
 
-        // Если есть столы, поле ввода свободно (1..50), если нет – только стулья, блокируем
         if (hasTables) {
             peopleInput.disabled = false;
             let current = parseInt(peopleInput.value) || 0;
@@ -465,7 +462,7 @@ function showDeleteConfirmation(booking, matchId) {
     });
 }
 
-// Просмотр брони
+// Просмотр брони (чекбокс депозита здесь, без кнопки "Сохранить изменения")
 function showBookingDetailsModal(booking, matchId) {
     const match = matches.find(m => m.id === matchId);
     if (!match) return;
@@ -510,6 +507,10 @@ function showBookingDetailsModal(booking, matchId) {
                 <span class="detail-value">${booking.depositRequired} BYN</span>
             </div>
             <div class="deposit-status-row">
+                <div class="toggle-wrapper">
+                    <input type="checkbox" id="detailDepositToggle" class="ios-toggle" ${booking.depositPaid ? 'checked' : ''}>
+                    <label for="detailDepositToggle" class="toggle-label">Депозит внесён</label>
+                </div>
                 <span id="depositStatusBadge"></span>
             </div>
         </div>
@@ -520,9 +521,31 @@ function showBookingDetailsModal(booking, matchId) {
     `;
 
     const badge = document.getElementById('depositStatusBadge');
-    badge.innerHTML = booking.depositPaid
-        ? '<span class="badge badge-paid">✅ Депозит внесён</span>'
-        : '<span class="badge badge-unpaid">⚠️ Депозит не внесён</span>';
+    function updateBadge() {
+        const paid = document.getElementById('detailDepositToggle').checked;
+        badge.innerHTML = paid
+            ? '<span class="badge badge-paid">✅ Депозит внесён</span>'
+            : '<span class="badge badge-unpaid">⚠️ Депозит не внесён</span>';
+    }
+    document.getElementById('detailDepositToggle').addEventListener('change', async function() {
+        booking.depositPaid = this.checked;
+        try {
+            await db.updateBooking(booking);
+            const matchBookings = bookingsData[matchId];
+            if (matchBookings) {
+                const idx = matchBookings.findIndex(b => b.id === booking.id);
+                if (idx !== -1) matchBookings[idx] = booking;
+            }
+            renderFloorPlan(matchId);
+            updateOccupancySummary(matchId);
+            updateBadge();
+            showToast('Статус депозита обновлён');
+        } catch (err) {
+            console.error(err);
+            showToast('Ошибка обновления');
+        }
+    });
+    updateBadge();
 
     document.getElementById('infoModal').classList.add('active');
 
@@ -535,7 +558,7 @@ function showBookingDetailsModal(booking, matchId) {
     });
 }
 
-// Редактирование брони (аналогично без лимитов)
+// Редактирование брони (чекбокс депозита убран)
 function showEditBookingForm(booking, matchId) {
     const match = matches.find(m => m.id === matchId);
     if (!match) return;
@@ -561,10 +584,6 @@ function showEditBookingForm(booking, matchId) {
             <button id="editAddItemBtn" class="btn-secondary btn-add">+ Добавить ещё место</button>
         </div>
         <div id="editDepositInfo" class="capacity-info"></div>
-        <div class="toggle-wrapper" style="margin: 24px 0 16px;">
-            <input type="checkbox" id="editDepositPaidCheckbox" class="ios-toggle" ${booking.depositPaid ? 'checked' : ''}>
-            <label for="editDepositPaidCheckbox" class="toggle-label">Депозит внесён</label>
-        </div>
         <div style="display: flex; gap: 12px; justify-content: space-between;">
             <button class="btn-cancel" id="cancelEditBtn">Отмена</button>
             <button class="btn-primary" id="saveEditBtn">Сохранить изменения</button>
@@ -709,7 +728,6 @@ function showEditBookingForm(booking, matchId) {
         booking.items = Array.from(selectedItems);
         booking.people = totalPeople;
         booking.depositRequired = totalDep;
-        booking.depositPaid = document.getElementById('editDepositPaidCheckbox').checked;
 
         try {
             await db.updateBooking(booking);
