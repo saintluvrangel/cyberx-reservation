@@ -558,10 +558,15 @@ function showBookingDetailsModal(booking, matchId) {
     });
 }
 
-// Редактирование брони (чекбокс депозита убран)
+// Редактирование брони (баг исправлен – стулья не добавляются к гостям)
 function showEditBookingForm(booking, matchId) {
     const match = matches.find(m => m.id === matchId);
     if (!match) return;
+
+    // Определяем начальное количество стульев и гостей за столами
+    const initialStools = booking.items.filter(id => itemsData[id].type !== 'table');
+    const initialStoolCount = initialStools.length;
+    const tablePeople = Math.max(1, booking.people - initialStoolCount); // хотя бы 1, если есть столы
 
     const content = document.getElementById('infoModalContent');
     content.innerHTML = `
@@ -576,7 +581,7 @@ function showEditBookingForm(booking, matchId) {
         </div>
         <div class="form-group">
             <label>Количество человек (за столами)</label>
-            <input type="number" id="editPeopleCount" min="1" max="50" value="${booking.people}">
+            <input type="number" id="editPeopleCount" min="1" max="50" value="${tablePeople}">
         </div>
         <div class="form-group">
             <label>Выбранные места</label>
@@ -611,6 +616,7 @@ function showEditBookingForm(booking, matchId) {
         const stoolCount = stools.length;
         const hasTables = tables.length > 0;
 
+        // Управляем доступностью поля
         if (hasTables) {
             peopleInput.disabled = false;
             let current = parseInt(peopleInput.value) || 0;
